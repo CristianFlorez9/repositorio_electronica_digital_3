@@ -1,4 +1,5 @@
-# Stabilix
+# Sisyphus 
+Por el mito de Sísifo: una tarea aparentemente imposible que se repite eternamente. La bola intentando escapar y el sistema corrigiéndola continuamente.
 **Sistema de balanceo activo: mantiene una bola en el centro de una plataforma inclinable mediante control PID**
 
 Proyecto de aula — Electrónica Digital 3 · 2026-2
