@@ -1,42 +1,49 @@
-# repositorio_electronica_digital_3
-
-Repositorio Proyecto Final – Electrónica Digital III (Equipo Lobos)
-
-# PicoRider
-
-**Motocicleta a control remoto con autoequilibrio activo, basada en Raspberry Pi Pico W**
+# Stabilix
+**Sistema de balanceo activo: mantiene una bola en el centro de una plataforma inclinable mediante control PID**
 
 Proyecto de aula — Electrónica Digital 3 · 2026-2
-**Equipo:** *Cristian Florez, Holman Londoño y Victor ledezma*
+**Equipo:** *Cristian Florez, Holman Londoño y Victor Ledezma* (Equipo Lobos)
 
 ---
 
 ## Idea inicial del proyecto
 
-PicoRider es el **diseño, fabricación e integración de una motocicleta a escala, controlada por Bluetooth y capaz de mantenerse en equilibrio sobre sus dos ruedas mediante control activo**.
+Este proyecto consiste en un sistema **ball & plate**: una bola se ubica libremente sobre una plataforma plana que puede inclinarse, y el sistema debe mantenerla en una posición de referencia (el centro) corrigiendo la inclinación en tiempo real.
 
-A diferencia de un carro RC —estable por construcción— una moto es mecánicamente inestable: si el lazo de control se detiene, el vehículo se cae. Eso convierte el proyecto en un caso real de **sistema embebido de tiempo real**, donde el firmware no es un accesorio sino la condición para que el producto funcione. Toda la lógica corre en una **Raspberry Pi Pico W (RP2040)**, que concentra sensado, control, accionamiento y enlace inalámbrico. El resultado esperado: un prototipo que se conduce desde un control remoto para acelerar, frenar y girar mientras el firmware se encarga de que no se caiga.
+Por su dinámica, la bola nunca se queda quieta por sí sola: en lazo abierto es inestable, y sin una corrección constante se sale del borde en cuestión de segundos. Por eso el proyecto exige un **lazo cerrado de retroalimentación** propiamente dicho —sensor midiendo la posición, controlador calculando la corrección, actuadores aplicándola sobre la plataforma, una y otra vez— para que la bola se mantenga balanceada en el centro.
+
+### Mecánica
+
+La plataforma superior es un disco de **acrílico transparente**, sostenido por brazos articulados sobre una base inferior donde están montados los servomotores de accionamiento, distribuidos para poder inclinar el disco en más de un eje.
 
 ### Estrategia de control
 
-El equilibrio se logrará con un **volante de inercia (*reaction wheel*)** montado transversalmente: al acelerar o frenar ese disco, la moto recibe un par de reacción que corrige la inclinación lateral. Es la única solución que funciona también con el vehículo detenido.
+La posición de la bola sobre la plataforma se mide con *(pendiente confirmar: pantalla táctil resistiva / cámara cenital / otro sensor — la sección de abajo asume pantalla resistiva, la opción más común en este tipo de montajes)*, y ese error de posición respecto al centro alimenta un **controlador PID** (uno por eje, X y Y) que ajusta la inclinación de la plataforma a través de los servomotores.
 
-El control se plantea en **cascada**: un lazo de equilibrio (PID sobre el ángulo de alabeo, estimado con filtro complementario entre acelerómetro y giroscopio), un lazo de descarga que mantiene la velocidad del volante cerca de cero para que no sature, y un lazo de conducción que traduce los comandos del usuario.
+### Microcontrolador y uso de interrupciones
 
-Un punto clave: **la referencia de inclinación no es cero**. Al pedir giro, el lazo de conducción calcula la inclinación necesaria para esa curva y se la ordena al lazo de equilibrio, de modo que la moto se recuesta hacia adentro como una moto real. Los comandos entran como *solicitud* y se limitan según la velocidad, porque el par del volante es finito.
+Todo el lazo corre en una **Raspberry Pi Pico (RP2040)**, encargada de leer el sensor de posición, calcular el PID y generar las señales hacia los servomotores. La idea es apoyarse en los periféricos e interrupciones del RP2040 en vez de resolverlo todo por software en un `while(1)` que sondea:
+
+- **Interrupción de temporizador (timer/alarm) para el lazo de control:** el PID no se ejecuta "tan rápido como el programa alcance", sino disparado por una interrupción de hardware a una frecuencia fija (p. ej. 100 Hz). Eso fija el período de muestreo, que es justamente una de las hipótesis con las que se diseña el controlador.
+- **ADC para leer la posición de la bola:** con pantalla resistiva, medir X y Y implica alternar qué par de bordes se excita y cuál se lee, y convertir esa tensión con el ADC interno de la Pico. Esa conmutación de pines se sincroniza con la misma interrupción del temporizador, para no mezclar una lectura de X con una de Y.
+- **Interrupción externa (GPIO IRQ):** un pulsador físico (recalibrar el centro de la plataforma, pausar el balanceo) se atiende por interrupción de flanco en vez de revisarlo por *polling* en el lazo principal.
+- **PWM por hardware:** los tres servomotores se accionan con los canales de PWM del RP2040 (periodo y ciclo útil configurados por registro), no con PWM generado por software.
+- **ISR cortas:** dentro de las rutinas de interrupción solo se actualiza una variable `volatile` o se levanta una bandera; el cálculo del PID y cualquier procesamiento más pesado se dejan para el lazo principal.
+
+*(Pendiente: si el sensor final no es la pantalla resistiva, ajustamos el punto del ADC por lo que corresponda.)*
 
 ### Fabricación
 
-Chasis y carrocería **impresos en 3D**, con el centro de masa lo más bajo posible, y **PCB propia** en KiCad que integra la Pico W, los drivers y la regulación.
+*(Pendiente: material y método de fabricación de la base y los soportes — impresión 3D, corte láser, mecanizado, etc.)*
 
 ### Modos, entregables y riesgos
 
-**Modos:** standby (equilibrio detenido) · manual (conducción por Bluetooth) · seguro (paro de emergencia, pérdida de enlace, batería baja o sobrecorriente).
+*(Pendiente: modos de operación — p. ej. calibración, balanceo automático, ajuste manual — y riesgos o condiciones de seguridad relevantes.)*
 
 ---
 
 ## Motivación
 
-Nos gustan las motos y la electrónica. A ninguno de nosotros nos hizo ilusión la idea de otro proyecto que se quedara en una protoboard mostrando datos en una pantalla: queríamos algo que se pudiera tomar con las manos, encender y conducir.
+Nos parece que los sistemas embebidos y la teoría de control son una pareja casi perfecta: uno sin el otro se queda corto. La teoría de control te dice qué hacer con el error de la bola, pero es la parte embebida —temporizadores, interrupciones, ADC, PWM— la que decide si esa teoría realmente se ejecuta con la precisión que el modelo supone. Un balancín de bola es honesto en ese sentido: si el muestreo no es constante o el PWM tiembla, la bola simplemente no se queda quieta, sin importar qué tan bien esté sintonizado el PID en el papel.
 
-De todas las ideas que barajamos, la moto fue la que más nos costó dar por sentada. Un carro a control remoto es un ejercicio conocido y resuelto; una moto que se sostiene sola no lo es, y esa dificultad fue justamente lo que nos convenció. Nos atrae que el equilibrio dependa por completo de lo que escribamos en el firmware: si el lazo está mal ajustado, el proyecto literalmente se cae al piso. Sumado a eso, queríamos un proyecto donde se abarcaran varios temas y retos y al final, queremos terminar el semestre con algo que se entienda sin explicar.
+Nos llamó la atención justo por eso: es un proyecto pequeño y de mesa, pero que obliga a tomarse en serio cada detalle de electrónica digital que hemos visto en el curso —desde cuándo usar una interrupción en vez de sondear un pin, hasta cómo sincronizar una lectura de ADC con el resto del lazo—, porque cualquier descuido se nota de inmediato en cómo se mueve la bola.
