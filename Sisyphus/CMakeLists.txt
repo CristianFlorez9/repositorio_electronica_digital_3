@@ -1,13 +1,9 @@
-# Generated Cmake Pico project file
-
+# Generated CMake Pico project file
 cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# Initialise pico_sdk from installed location
-# (note this can come from environment, CMake cache etc)
 
 # == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
 if(WIN32)
@@ -23,6 +19,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
+
 set(PICO_BOARD pico CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
@@ -33,25 +30,28 @@ project(Sisyphus C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
-
-add_executable(Sisyphus Sisyphus.c )
+# Define el ejecutable y sus archivos fuente
+# (Si usas main.cpp o tienes archivos dentro de una carpeta como src/main.c, edita esta línea)
+add_executable(Sisyphus
+    main.c
+)
 
 pico_set_program_name(Sisyphus "Sisyphus")
 pico_set_program_version(Sisyphus "0.1")
 
-# Modify the below lines to enable/disable output over UART/USB
+# Salida de texto (printf) por USB habilitada (1) y UART deshabilitada (0)
 pico_enable_stdio_uart(Sisyphus 0)
-pico_enable_stdio_usb(Sisyphus 0)
+pico_enable_stdio_usb(Sisyphus 1)
 
-# Add the standard library to the build
+# Vincular la librería estándar del Pico SDK
 target_link_libraries(Sisyphus
-        pico_stdlib)
-
-# Add the standard include files to the build
-target_include_directories(Sisyphus PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
+    pico_stdlib
 )
 
-pico_add_extra_outputs(Sisyphus)
+# Carpetas de cabeceras (.h)
+target_include_directories(Sisyphus PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}
+)
 
+# Generar archivos finales (.uf2, .elf, .bin) para flashear el Pico
+pico_add_extra_outputs(Sisyphus)
