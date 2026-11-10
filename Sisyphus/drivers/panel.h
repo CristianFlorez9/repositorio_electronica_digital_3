@@ -1,5 +1,5 @@
 /* 
-  Fucion : leer la posicion de la bola en el panel resistivo  de 4 hilos mediante digitalizador por SPI
+  Funcion : leer la posicion de la bola en el panel resistivo  de 4 hilos mediante digitalizador por SPI
 
   Responsabilidades:
      Inicializar el SPI y le sellecion de chip
